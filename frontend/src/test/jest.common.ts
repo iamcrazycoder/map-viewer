@@ -3,14 +3,14 @@
  * https://jestjs.io/docs/configuration
  */
 
-import path from 'path'
+import path from "path";
 
 module.exports = {
-  rootDir: path.join(__dirname, '../..'),
+  rootDir: path.join(__dirname, "../.."),
   moduleDirectories: [
-    'node_modules',
+    "node_modules",
     path.join(__dirname),
-    path.join(__dirname, '..')
+    path.join(__dirname, ".."),
   ],
   /**
    * This option does 2 things to support css module imports
@@ -20,9 +20,11 @@ module.exports = {
    *     in the test output.
    */
   moduleNameMapper: {
-    '\\.module\\.css$': 'identity-obj-proxy',
-    '\\.(css|svg)$': require.resolve('./globalMocks/emptyObjectExport.ts'),
-    'utils/getEnvVariables': require.resolve('./globalMocks/envVariablesMock.ts')
+    "\\.module\\.css$": "identity-obj-proxy",
+    "\\.(css|svg)$": require.resolve("./globalMocks/emptyObjectExport.ts"),
+    "utils/getEnvVariables": require.resolve(
+      "./globalMocks/envVariablesMock.ts"
+    ),
   },
   /**
    * This plugin allows us to select what project we want to run
@@ -30,8 +32,8 @@ module.exports = {
    * during watch mode to select projects
    */
   watchPlugins: [
-    'jest-watch-select-projects',
-    'jest-watch-typeahead/filename',
-    'jest-watch-typeahead/testname'
-  ]
-}
+    "jest-watch-select-projects",
+    "jest-watch-typeahead/filename",
+    "jest-watch-typeahead/testname",
+  ],
+};

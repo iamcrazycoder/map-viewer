@@ -114,7 +114,6 @@ build
 
 # DS_Store
 .DS_Store
-public/antd-backup.css
 
 # Github actions data
 .github/data
