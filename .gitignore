@@ -121,3 +121,6 @@ public/antd-backup.css
 
 # Used to reload `vite` post-checkout
 .viteSignal.txt
+
+# temp directories
+**/temp
