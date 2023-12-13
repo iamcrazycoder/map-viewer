@@ -10,7 +10,8 @@
     "start": "node build/server/index.js",
     "test": "jest --coverage --config --passWithNoTests jestconfig.json",
     "ci": "npm run test",
-    "knex": "knex"
+    "knex": "knex",
+    "import-ny-trees": "tsx scripts/nyc-trees-importer.ts"
   },
   "author": "Nishant Ghodke",
   "license": "MIT",
