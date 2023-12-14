@@ -2,10 +2,13 @@ import { pipeline } from "node:stream/promises";
 import fs, { PathLike, ReadStream } from "node:fs";
 import fsPromise from "fs/promises";
 import pg from "pg";
-import csv from "csv-parser";
 import { from as copyFrom } from "pg-copy-streams";
 import "../utils/polyfills";
 import "dotenv/config";
+import knex from "knex";
+
+import knexConfig from "../knexfile";
+
 type TableConfig = {
   name: string;
   primaryKey: string;
@@ -16,6 +19,7 @@ type PostgresCSVImporterOptions = {
   temporaryTable: TableConfig;
   primaryTable: TableConfig;
   columnMappings: [string, string][];
+  csvHeaders: string[];
 };
 
 /**
@@ -27,10 +31,18 @@ export default class PostgresCSVImporter implements Disposable {
   private primaryTable: TableConfig;
   private columnMappings: [string, string][]; // first tuple is the primary key pair
 
+  // csv config
+  private csvHeaders: string[];
+
+  // file system related data
   private readonly filePath: PathLike;
   private readonly fileStream: ReadStream;
+
+  // database
   private readonly pool: pg.Pool;
   private client!: pg.PoolClient;
+
+  // local utils
   private readonly loaded: Promise<unknown>;
   private loadedResolve!: (value: unknown | PromiseLike<unknown>) => void;
 
@@ -39,6 +51,7 @@ export default class PostgresCSVImporter implements Disposable {
     temporaryTable,
     primaryTable,
     columnMappings,
+    csvHeaders,
   }: PostgresCSVImporterOptions) {
     this.pool = new pg.Pool({
       host: process.env.PG_HOST,
@@ -55,6 +68,8 @@ export default class PostgresCSVImporter implements Disposable {
     this.primaryTable = primaryTable;
     this.columnMappings = columnMappings;
 
+    this.csvHeaders = csvHeaders;
+
     // setup deferred resolver
     this.loaded = new Promise((resolve) => {
       this.loadedResolve = resolve;
@@ -63,25 +78,6 @@ export default class PostgresCSVImporter implements Disposable {
 
   private async setupConnection() {
     this.client = await this.pool.connect();
-  }
-
-  /**
-   * Reads CSV file in a separate stream and triggers temp table creation
-   * as soon as the headers are detected. Please note that this fn will
-   * release all the functions
-   */
-  private readFileHeaders() {
-    const csvReader = fs.createReadStream(this.filePath).pipe(csv());
-
-    // TODO: best way to read just the headers?
-    csvReader.on("headers", async (headers) => {
-      this.loadedResolve(true);
-
-      await this.createTempTable(headers);
-
-      // destroy stream
-      csvReader.destroy();
-    });
   }
 
   /**
@@ -95,8 +91,8 @@ export default class PostgresCSVImporter implements Disposable {
    * @param columns table columnn names
    * @returns Promise of db query
    */
-  private async createTempTable(columns: string[] = []) {
-    const columnDefinitions = columns.map((column) => `${column} TEXT`);
+  private async createTempTable() {
+    const columnDefinitions = this.csvHeaders.map((column) => `${column} TEXT`);
     const ddlQuery = `CREATE UNLOGGED TABLE IF NOT EXISTS ${
       this.temporaryTable.name
     } (
@@ -158,8 +154,10 @@ export default class PostgresCSVImporter implements Disposable {
    */
   public async init() {
     await this.setupConnection();
-    this.readFileHeaders();
+    await this.createTempTable();
     await this.truncateTempTable();
+
+    this.loadedResolve(true);
   }
 
   /**
