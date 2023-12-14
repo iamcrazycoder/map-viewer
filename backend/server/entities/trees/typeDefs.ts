@@ -28,6 +28,6 @@ export default `
 
   type Query {
     getTree(id: ID!): Tree
-    getTrees(filter: TreesFilter): [CompressedTree]
+    getTrees(filter: TreesFilter, boundingBox: [[Float]]): [CompressedTree]
   }
 `;
