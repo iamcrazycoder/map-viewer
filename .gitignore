@@ -123,3 +123,6 @@ build
 
 # temp directories
 **/temp
+
+# redis
+*redis*
