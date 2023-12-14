@@ -11,7 +11,7 @@
     "test": "jest --coverage --config --passWithNoTests jestconfig.json",
     "ci": "npm run test",
     "knex": "knex",
-    "import-ny-trees": "tsx scripts/nyc-trees-importer.ts"
+    "import-ny-trees": "tsx scripts/ny-trees-importer.ts"
   },
   "author": "Nishant Ghodke",
   "license": "MIT",
