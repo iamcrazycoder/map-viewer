@@ -120,17 +120,62 @@ export default class PostgresCSVImporter implements Disposable {
    * @returns
    */
   private async migrateFromTempToPrimaryTable() {
-    const tempTableColumns = this.propertyMappings.map((tuple) => tuple[0]);
-    const primaryTableColumns = this.propertyMappings.map((tuple) => tuple[1]);
+    const primaryTableColumns = this.columnMappings.map(
+      (tuple) => `"${tuple[1]}"`
+    );
+    const castedExpressions = await this.castColumnsToPrimaryTableSchema();
 
     return this.client.query(`
         INSERT INTO ${this.primaryTable.name}
             (${primaryTableColumns.join(", ")})
         SELECT
-            ${tempTableColumns.join(", ")}
-        FROM ${this.temporaryTableName}
+            ${castedExpressions.join(",\n")}
+        FROM ${this.temporaryTable.name}
         ON CONFLICT (id) DO NOTHING
     `);
+  }
+
+  /**
+   * Cast temp table string values to corresponsing types defined in the primary table schema
+   */
+
+  private async castColumnsToPrimaryTableSchema() {
+    const knexClient = knex(knexConfig.development);
+    const primaryTableColumnSchema = await knexClient
+      .table(this.primaryTable.name)
+      .columnInfo();
+
+    const castedExpressions = [];
+    for (const [tempTableColumn, primaryTableColumn] of this.columnMappings) {
+      const primaryTableColumnDefinition =
+        primaryTableColumnSchema[primaryTableColumn];
+
+      if (!primaryTableColumnDefinition) continue;
+
+      const castedExpression = this.getCastExpression(
+        primaryTableColumnDefinition.type,
+        tempTableColumn
+      );
+      castedExpressions.push(castedExpression);
+    }
+
+    knexClient.destroy();
+
+    return castedExpressions;
+  }
+
+  private getCastExpression(type: string, columnName: string) {
+    type = type.toLowerCase();
+
+    if (["text", "char", "character varying", "integer"].includes(type)) {
+      return `CAST("${columnName}" AS ${type})`;
+    } else if (type === "array") {
+      return `string_to_array(${columnName}, ',')::text[]`;
+    } else if (type === "point") {
+      return `ST_PointFromText(${columnName})`;
+    } else {
+      return `${columnName}`;
+    }
   }
 
   /**
@@ -181,7 +226,7 @@ export default class PostgresCSVImporter implements Disposable {
   // Cleanup after the class instance has finished processing
   async [Symbol.dispose]() {
     // drop temporary unlogged table
-    // await this.dropTempTable();
+    await this.dropTempTable();
 
     // destroy readable file stream
     this.fileStream.destroy();
