@@ -6,21 +6,27 @@ import csv from "csv-parser";
 import { from as copyFrom } from "pg-copy-streams";
 import "../utils/polyfills";
 import "dotenv/config";
+type TableConfig = {
+  name: string;
+  primaryKey: string;
+};
 
 type PostgresCSVImporterOptions = {
   filePath: PathLike;
-  temporaryTableName: string;
-  primaryTableName: string;
-  propertyMappings: [string, string][];
+  temporaryTable: TableConfig;
+  primaryTable: TableConfig;
+  columnMappings: [string, string][];
 };
 
 /**
  * Class to import data from CSV file to Postgres
  */
 export default class PostgresCSVImporter implements Disposable {
-  private temporaryTableName: string;
-  private primaryTableName: string;
-  private propertyMappings: [string, string][]; // first tuple is the primary key pair
+  // table related config
+  private temporaryTable: TableConfig;
+  private primaryTable: TableConfig;
+  private columnMappings: [string, string][]; // first tuple is the primary key pair
+
   private readonly filePath: PathLike;
   private readonly fileStream: ReadStream;
   private readonly pool: pg.Pool;
@@ -30,9 +36,9 @@ export default class PostgresCSVImporter implements Disposable {
 
   constructor({
     filePath,
-    temporaryTableName,
-    primaryTableName,
-    propertyMappings,
+    temporaryTable,
+    primaryTable,
+    columnMappings,
   }: PostgresCSVImporterOptions) {
     this.pool = new pg.Pool({
       host: process.env.PG_HOST,
@@ -45,9 +51,9 @@ export default class PostgresCSVImporter implements Disposable {
     this.filePath = filePath;
     this.fileStream = fs.createReadStream(filePath);
 
-    this.temporaryTableName = temporaryTableName;
-    this.primaryTableName = primaryTableName;
-    this.propertyMappings = propertyMappings;
+    this.temporaryTable = temporaryTable;
+    this.primaryTable = primaryTable;
+    this.columnMappings = columnMappings;
 
     // setup deferred resolver
     this.loaded = new Promise((resolve) => {
@@ -92,7 +98,7 @@ export default class PostgresCSVImporter implements Disposable {
   private async createTempTable(columns: string[] = []) {
     const columnDefinitions = columns.map((column) => `${column} TEXT`);
     const ddlQuery = `CREATE UNLOGGED TABLE IF NOT EXISTS ${
-      this.temporaryTableName
+      this.temporaryTable.name
     } (
         ${columnDefinitions.join(",\n\t")}
     )`;
@@ -100,8 +106,8 @@ export default class PostgresCSVImporter implements Disposable {
     return this.client.query(ddlQuery);
   }
 
-  private truncateTempTable() {
-    const truncateTableQuery = `TRUNCATE TABLE ${this.temporaryTableName}`;
+  private async truncateTempTable() {
+    const truncateTableQuery = `TRUNCATE TABLE ${this.temporaryTable.name}`;
     return this.client.query(truncateTableQuery);
   }
 
@@ -110,7 +116,7 @@ export default class PostgresCSVImporter implements Disposable {
    * @returns Promise of db query
    */
   private async dropTempTable() {
-    return this.client.query(`DROP TABLE ${this.temporaryTableName}`);
+    return this.client.query(`DROP TABLE ${this.temporaryTable.name}`);
   }
 
   /**
@@ -122,7 +128,7 @@ export default class PostgresCSVImporter implements Disposable {
     const primaryTableColumns = this.propertyMappings.map((tuple) => tuple[1]);
 
     return this.client.query(`
-        INSERT INTO ${this.primaryTableName}
+        INSERT INTO ${this.primaryTable.name}
             (${primaryTableColumns.join(", ")})
         SELECT
             ${tempTableColumns.join(", ")}
@@ -135,11 +141,11 @@ export default class PostgresCSVImporter implements Disposable {
    * Prints to terminal the number of rows that were successfully imported from CSV to Postgres
    */
   private async printAnalytics() {
-    const tempTablePrimaryKey = this.propertyMappings[0][0];
+    const tempTablePrimaryKey = this.temporaryTable.primaryKey;
     const {
       rows: [{ count: rowCount }],
     } = await this.client.query(
-      `SELECT COUNT(${tempTablePrimaryKey}) FROM ${this.temporaryTableName}`
+      `SELECT COUNT(${tempTablePrimaryKey}) FROM ${this.temporaryTable.name}`
     );
 
     console.log(`Successfully imported ${rowCount} rows`);
@@ -164,7 +170,7 @@ export default class PostgresCSVImporter implements Disposable {
 
     const ingestStream = this.client.query(
       copyFrom(
-        `COPY ${this.temporaryTableName} FROM STDIN DELIMITER ',' CSV HEADER`
+        `COPY ${this.temporaryTable.name} FROM STDIN DELIMITER ',' CSV HEADER`
       )
     );
 
