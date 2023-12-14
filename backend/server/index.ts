@@ -27,7 +27,7 @@ async function main(): Promise<void> {
     });
 
     // Create server
-    const server = createServer(yoga); // eslint-disable-line @typescript-eslint/no-misused-promises
+    const server = createServer(yoga);
 
     // Start server
     server.listen(PORT, () => {
