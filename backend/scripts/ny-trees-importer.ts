@@ -57,7 +57,7 @@ import PostgresCSVImporter from "../modules/PostgresCSVImporter";
   const columnMappings: [string, string][] = [
     // ['temp-table', 'primary-table']
     ["tree_id", "treeId"],
-    ["the_geom", "coords"],
+    ["the_geom", "geom"],
     ["health", "health"],
     ["spc_common", "species"],
     ["problems", "problems"],
