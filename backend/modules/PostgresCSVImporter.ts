@@ -141,6 +141,7 @@ export default class PostgresCSVImporter implements Disposable {
     const columnDefinitions = this.csvHeaders.map((column) => `${column} TEXT`);
 
     await PostgresUtils.createTemporaryTable({
+      knexClient: this.knexClient,
       tableName: this.temporaryTable.name,
       columns: columnDefinitions,
     });

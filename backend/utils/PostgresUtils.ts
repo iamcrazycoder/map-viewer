@@ -1,7 +1,10 @@
 import knex from "knex";
 import knexConfig from "../knexfile";
 
-type GenerateTemporaryTableOptions = {
+type PostgresUtilFnOptions<T> = {
+  knexClient: Knex;
+} & T;
+
   tableName: string;
   columns: string[];
   truncateIfExists?: boolean;
@@ -27,20 +30,19 @@ export default class PostgresUtils {
    * @returns Promise of db query
    */
   static async createTemporaryTable({
+    knexClient,
     tableName,
     columns,
     truncateIfExists = false,
   }: GenerateTemporaryTableOptions) {
-    const client = PostgresUtils.getKnexClient();
-
     const ddlQuery = `CREATE UNLOGGED TABLE IF NOT EXISTS ${tableName} (
           ${columns.join(",\n\t")}
       )`;
 
-    await client.raw(ddlQuery);
+    await knexClient.raw(ddlQuery);
 
     if (truncateIfExists) {
-      await client.table(tableName).truncate();
+      await knexClient.table(tableName).truncate();
     }
   }
 
