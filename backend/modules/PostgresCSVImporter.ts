@@ -159,7 +159,8 @@ export default class PostgresCSVImporter implements Disposable {
   public async import() {
     await this.loaded;
 
-    const connection = this.knexClient.client.pool.acquireConnection();
+    const connection = await this.knexClient.client.acquireConnection();
+
     // create incoming database to ingest data from CSV file to Postgres
     const ingestStream = connection.query(
       copyFrom(
@@ -171,7 +172,7 @@ export default class PostgresCSVImporter implements Disposable {
     await pipeline(this.fileStream, ingestStream);
 
     // release pool connection
-    await this.knexClient.client.pool.releaseConnection(connection);
+    await this.knexClient.client.releaseConnection(connection);
 
     // print the outcome of the above process. Eg, no. of rows imported
     await this.printAnalytics();
