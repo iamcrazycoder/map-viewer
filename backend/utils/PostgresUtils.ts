@@ -75,12 +75,12 @@ export default class PostgresUtils {
 
     if (type === "user-defined") {
       if (["geom", "the_geom", "coords"].includes(columnName)) {
-      return `ST_PointFromText(${columnName})`;
+        return `ST_PointFromText(${columnName})`;
       }
 
       if (metadata?.enum?.[columnName]) {
         return `${columnName}::${metadata?.enum?.[columnName]}`;
-    }
+      }
     }
 
     return `${columnName}`;

@@ -55,10 +55,11 @@ import PostgresCSVImporter from "../modules/PostgresCSVImporter";
     "y_sp",
   ];
   const columnMappings: [string, string][] = [
-    // ['temp-table', 'primary-table']
+    // temp-table => primary-table
     ["tree_id", "treeId"],
     ["the_geom", "geom"],
     ["health", "health"],
+    ["status", "status"],
     ["spc_common", "species"],
     ["problems", "problems"],
     ["address", "address"],
@@ -66,10 +67,15 @@ import PostgresCSVImporter from "../modules/PostgresCSVImporter";
     ["zip_city", "city"],
     ["state", "state"],
   ];
+
+  const enumMapping: Record<string, string> = {
+    status: "enum_trees_statuses",
+  };
   using importer = new PostgresCSVImporter({
     filePath,
     csvHeaders,
     columnMappings,
+    enumMapping,
     temporaryTable: {
       name: "ul_temp_trees",
       primaryKey: "tree_id",
