@@ -5,7 +5,7 @@ import { from as copyFrom } from "pg-copy-streams";
 import "../utils/polyfills";
 import "dotenv/config";
 
-import PostgresUtils from "../utils/PostgresUtils";
+import PostgresUtils, { ColumnMetadata } from "../utils/PostgresUtils";
 import { Knex } from "knex";
 
 type TableConfig = {
@@ -13,11 +13,16 @@ type TableConfig = {
   primaryKey: string;
 };
 
+type EnumMapping = {
+  [columnName: string]: string; // value is enum-name in database
+};
+
 type PostgresCSVImporterOptions = {
   filePath: PathLike;
   temporaryTable: TableConfig;
   primaryTable: TableConfig;
   columnMappings: [string, string][];
+  enumMapping: EnumMapping;
   csvHeaders: string[];
 };
 
@@ -29,6 +34,7 @@ export default class PostgresCSVImporter implements Disposable {
   private temporaryTable: TableConfig;
   private primaryTable: TableConfig;
   private columnMappings: [string, string][]; // first tuple is the primary key pair
+  private enumMapping: EnumMapping = {};
 
   // csv config
   private csvHeaders: string[];
@@ -53,6 +59,7 @@ export default class PostgresCSVImporter implements Disposable {
     temporaryTable,
     primaryTable,
     columnMappings,
+    enumMapping,
     csvHeaders,
   }: PostgresCSVImporterOptions) {
     this.filePath = filePath;
@@ -63,6 +70,7 @@ export default class PostgresCSVImporter implements Disposable {
     this.temporaryTable = temporaryTable;
     this.primaryTable = primaryTable;
     this.columnMappings = columnMappings;
+    this.enumMapping = enumMapping || this.enumMapping;
 
     this.csvHeaders = csvHeaders;
 
@@ -109,9 +117,14 @@ export default class PostgresCSVImporter implements Disposable {
 
       if (!primaryTableColumnDefinition) continue;
 
+      const metadata: ColumnMetadata = {
+        enum: this.enumMapping,
+      };
+
       const castedExpression = PostgresUtils.getCastExpression(
         primaryTableColumnDefinition.type,
-        tempTableColumn
+        tempTableColumn,
+        metadata
       );
       castedExpressions.push(castedExpression);
     }

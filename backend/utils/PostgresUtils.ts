@@ -5,9 +5,14 @@ type PostgresUtilFnOptions<T> = {
   knexClient: Knex;
 } & T;
 
+type GenerateTemporaryTableOptions = PostgresUtilFnOptions<{
   tableName: string;
   columns: string[];
   truncateIfExists?: boolean;
+}>;
+
+export type ColumnMetadata = {
+  enum?: Record<string, string>;
 };
 
 export default class PostgresUtils {
@@ -53,17 +58,31 @@ export default class PostgresUtils {
    * @param columnName
    * @returns
    */
-  static getCastExpression(type: string, columnName: string) {
+  static getCastExpression(
+    type: string,
+    columnName: string,
+    metadata: ColumnMetadata
+  ) {
     type = type.toLowerCase();
 
     if (["text", "char", "character varying", "integer"].includes(type)) {
       return `CAST("${columnName}" AS ${type})`;
-    } else if (type === "array") {
-      return `string_to_array(${columnName}, ',')::text[]`;
-    } else if (type === "point") {
-      return `ST_PointFromText(${columnName})`;
-    } else {
-      return `${columnName}`;
     }
+
+    if (type === "array") {
+      return `string_to_array(${columnName}, ',')::text[]`;
+    }
+
+    if (type === "user-defined") {
+      if (["geom", "the_geom", "coords"].includes(columnName)) {
+      return `ST_PointFromText(${columnName})`;
+      }
+
+      if (metadata?.enum?.[columnName]) {
+        return `${columnName}::${metadata?.enum?.[columnName]}`;
+    }
+    }
+
+    return `${columnName}`;
   }
 }
