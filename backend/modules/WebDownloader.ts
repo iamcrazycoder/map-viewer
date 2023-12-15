@@ -36,6 +36,8 @@ export default class WebDownloader implements Disposable {
         )
       );
 
+      console.log(`Download complete! File stored at: ${this.filePath}`);
+
       return this.filePath;
     } catch (error: any) {
       await this.deleteFile();

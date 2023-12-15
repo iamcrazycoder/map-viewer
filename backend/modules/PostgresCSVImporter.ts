@@ -1,13 +1,12 @@
 import { pipeline } from "node:stream/promises";
 import fs, { PathLike, ReadStream } from "node:fs";
 import fsPromise from "fs/promises";
-import pg from "pg";
 import { from as copyFrom } from "pg-copy-streams";
 import "../utils/polyfills";
 import "dotenv/config";
-import knex from "knex";
 
-import knexConfig from "../knexfile";
+import PostgresUtils from "../utils/PostgresUtils";
+import { Knex } from "knex";
 
 type TableConfig = {
   name: string;
@@ -38,12 +37,15 @@ export default class PostgresCSVImporter implements Disposable {
   private readonly filePath: PathLike;
   private readonly fileStream: ReadStream;
 
-  // database
-  private readonly pool: pg.Pool;
-  private client!: pg.PoolClient;
+  // database client
+  private knexClient: Knex;
 
   // local utils
+  // flag to block execution until its resolved by loadedResolve()
   private readonly loaded: Promise<unknown>;
+
+  // marks the loaded flag as true and unblocks all the executions
+  // that were blocked by "await this.loaded"
   private loadedResolve!: (value: unknown | PromiseLike<unknown>) => void;
 
   constructor({
@@ -53,16 +55,10 @@ export default class PostgresCSVImporter implements Disposable {
     columnMappings,
     csvHeaders,
   }: PostgresCSVImporterOptions) {
-    this.pool = new pg.Pool({
-      host: process.env.PG_HOST,
-      port: +(process.env.PG_PORT || 5432),
-      user: process.env.PG_USER,
-      password: process.env.PG_PASSWORD,
-      database: process.env.PG_DATABASE,
-    });
-
     this.filePath = filePath;
     this.fileStream = fs.createReadStream(filePath);
+
+    this.knexClient = PostgresUtils.getKnexClient();
 
     this.temporaryTable = temporaryTable;
     this.primaryTable = primaryTable;
@@ -76,56 +72,18 @@ export default class PostgresCSVImporter implements Disposable {
     });
   }
 
-  private async setupConnection() {
-    this.client = await this.pool.connect();
-  }
-
-  /**
-   * Creates an unlogged table. Refer: https://www.crunchydata.com/blog/postgresl-unlogged-tables
-   *
-   * Unlogged tables are super light-weight because writes don't create WAL!
-   * However, it's important to manage it and remove it if its not needed at the end of the process.
-   *
-   * This class will automatically drop the table after the class instance is GC'd
-   *
-   * @param columns table columnn names
-   * @returns Promise of db query
-   */
-  private async createTempTable() {
-    const columnDefinitions = this.csvHeaders.map((column) => `${column} TEXT`);
-    const ddlQuery = `CREATE UNLOGGED TABLE IF NOT EXISTS ${
-      this.temporaryTable.name
-    } (
-        ${columnDefinitions.join(",\n\t")}
-    )`;
-
-    return this.client.query(ddlQuery);
-  }
-
-  private async truncateTempTable() {
-    const truncateTableQuery = `TRUNCATE TABLE ${this.temporaryTable.name}`;
-    return this.client.query(truncateTableQuery);
-  }
-
-  /**
-   * Drops temporary table that was created to accomodate all the raw data from CSV
-   * @returns Promise of db query
-   */
-  private async dropTempTable() {
-    return this.client.query(`DROP TABLE ${this.temporaryTable.name}`);
-  }
-
   /**
    * Fn to migrate selected data from temporary table to primary table
    * @returns
    */
-  private async migrateFromTempToPrimaryTable() {
+  private async migrateFromTemporaryToPrimaryTable() {
+    console.log("Now migrating data from temp table to primary table");
     const primaryTableColumns = this.columnMappings.map(
       (tuple) => `"${tuple[1]}"`
     );
     const castedExpressions = await this.castColumnsToPrimaryTableSchema();
 
-    return this.client.query(`
+    return this.knexClient.raw(`
         INSERT INTO ${this.primaryTable.name}
             (${primaryTableColumns.join(", ")})
         SELECT
@@ -140,8 +98,7 @@ export default class PostgresCSVImporter implements Disposable {
    */
 
   private async castColumnsToPrimaryTableSchema() {
-    const knexClient = knex(knexConfig.development);
-    const primaryTableColumnSchema = await knexClient
+    const primaryTableColumnSchema = await this.knexClient
       .table(this.primaryTable.name)
       .columnInfo();
 
@@ -152,44 +109,27 @@ export default class PostgresCSVImporter implements Disposable {
 
       if (!primaryTableColumnDefinition) continue;
 
-      const castedExpression = this.getCastExpression(
+      const castedExpression = PostgresUtils.getCastExpression(
         primaryTableColumnDefinition.type,
         tempTableColumn
       );
       castedExpressions.push(castedExpression);
     }
 
-    knexClient.destroy();
-
     return castedExpressions;
-  }
-
-  private getCastExpression(type: string, columnName: string) {
-    type = type.toLowerCase();
-
-    if (["text", "char", "character varying", "integer"].includes(type)) {
-      return `CAST("${columnName}" AS ${type})`;
-    } else if (type === "array") {
-      return `string_to_array(${columnName}, ',')::text[]`;
-    } else if (type === "point") {
-      return `ST_PointFromText(${columnName})`;
-    } else {
-      return `${columnName}`;
-    }
   }
 
   /**
    * Prints to terminal the number of rows that were successfully imported from CSV to Postgres
    */
   private async printAnalytics() {
-    const tempTablePrimaryKey = this.temporaryTable.primaryKey;
-    const {
-      rows: [{ count: rowCount }],
-    } = await this.client.query(
-      `SELECT COUNT(${tempTablePrimaryKey}) FROM ${this.temporaryTable.name}`
-    );
+    const [{ count }] = await this.knexClient
+      .table(this.temporaryTable.name)
+      .count({ count: this.temporaryTable.primaryKey });
 
-    console.log(`Successfully imported ${rowCount} rows`);
+    console.log(
+      `Successfully imported ${count} rows from CSV file to temp table`
+    );
   }
 
   /**
@@ -198,10 +138,17 @@ export default class PostgresCSVImporter implements Disposable {
    * IMPORTANT: After initializing this class, init() call should be the first call on the class instance
    */
   public async init() {
-    await this.setupConnection();
-    await this.createTempTable();
-    await this.truncateTempTable();
+    const columnDefinitions = this.csvHeaders.map((column) => `${column} TEXT`);
 
+    await PostgresUtils.createTemporaryTable({
+      tableName: this.temporaryTable.name,
+      columns: columnDefinitions,
+    });
+
+    console.log("Initialization successful! Starting import now..");
+
+    // release the "loaded" lock for other fns to start processing
+    // NOTE: very important to release the following lock or none of the public functions will work
     this.loadedResolve(true);
   }
 
@@ -211,31 +158,41 @@ export default class PostgresCSVImporter implements Disposable {
   public async import() {
     await this.loaded;
 
-    const ingestStream = this.client.query(
+    const connection = this.knexClient.client.pool.acquireConnection();
+    // create incoming database to ingest data from CSV file to Postgres
+    const ingestStream = connection.query(
       copyFrom(
         `COPY ${this.temporaryTable.name} FROM STDIN DELIMITER ',' CSV HEADER`
       )
     );
 
+    // pipe CSV file stream to database stream
     await pipeline(this.fileStream, ingestStream);
+
+    // release pool connection
+    await this.knexClient.client.pool.releaseConnection(connection);
+
+    // print the outcome of the above process. Eg, no. of rows imported
     await this.printAnalytics();
 
-    await this.migrateFromTempToPrimaryTable();
+    await this.migrateFromTemporaryToPrimaryTable();
+
+    console.log("Process complete! 🎉");
   }
 
   // Cleanup after the class instance has finished processing
   async [Symbol.dispose]() {
-    // drop temporary unlogged table
-    await this.dropTempTable();
+    await Promise.all([
+      // drop temporary unlogged table
+      this.knexClient.schema.dropTableIfExists(this.temporaryTable.name),
+      // delete CSV file from filesystem
+      fsPromise.unlink(this.filePath),
+    ]);
 
     // destroy readable file stream
     this.fileStream.destroy();
 
-    // release database client and close the pool
-    this.client.release();
-    await this.pool.end();
-
-    // delete CSV file from filesystem
-    await fsPromise.unlink(this.filePath);
+    // destroy database connection
+    await this.knexClient.destroy();
   }
 }
