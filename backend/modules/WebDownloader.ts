@@ -50,7 +50,9 @@ export default class WebDownloader implements Disposable {
   }
 
   private async deleteFile() {
-    return fsPromise.unlink(this.filePath);
+    try {
+      await fsPromise.unlink(this.filePath);
+    } catch (_) {}
   }
 
   // Cleanup after the class instance has finished processing
