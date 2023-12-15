@@ -1,4 +1,4 @@
-import knex from "knex";
+import knex, { Knex } from "knex";
 import knexConfig from "../knexfile";
 
 type PostgresUtilFnOptions<T> = {
