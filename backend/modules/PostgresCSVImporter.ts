@@ -157,6 +157,7 @@ export default class PostgresCSVImporter implements Disposable {
       knexClient: this.knexClient,
       tableName: this.temporaryTable.name,
       columns: columnDefinitions,
+      truncateIfExists: true,
     });
 
     console.log("Initialization successful! Starting import now..");
