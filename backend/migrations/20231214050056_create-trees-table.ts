@@ -10,7 +10,7 @@ export async function up(knex: Knex): Promise<void> {
       table.integer("treeId").unique().unsigned().notNullable();
 
       // geographical points
-      table.geometry("coords").notNullable();
+      table.geometry("geom").notNullable();
 
       // statuses
       table.enum("status", ["Alive", "Stump", "Dead"], {
