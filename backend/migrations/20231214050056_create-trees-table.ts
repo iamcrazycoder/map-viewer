@@ -32,8 +32,15 @@ export async function up(knex: Knex): Promise<void> {
 
       table.index("health", "idx_trees_health");
       table.index("species", "idx_trees_species");
-      table.index("problems", "idx_trees_problems", {
+
+      // add GIN index for array type
+      table.index("problems", "idx_trees_problems_gin", {
         indexType: "GIN",
+      });
+
+      // add GIST index for geom
+      table.index("geom", "idx_trees_geom_gist", {
+        indexType: "GiST",
       });
     });
   }
