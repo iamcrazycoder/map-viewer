@@ -89,7 +89,7 @@ export default class PostgresCSVImporter implements Disposable {
         SELECT
             ${castedExpressions.join(",\n")}
         FROM ${this.temporaryTable.name}
-        ON CONFLICT (id) DO NOTHING
+        ON CONFLICT DO NOTHING
     `);
   }
 
