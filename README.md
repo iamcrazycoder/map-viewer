@@ -28,6 +28,9 @@ npm i
 npm run knex migrate:latest
 npm run knex seed:run
 
+# create temp directory in /backend
+mkdir temp
+
 # this process may take around 2-4 minutes to complete
 # don't cancel while the process is running 
 npm run import-ny-trees
