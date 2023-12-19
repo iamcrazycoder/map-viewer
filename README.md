@@ -15,6 +15,9 @@ Pre-requisite:
 ```shell
 cd backend
 
+# create env file
+cp .env.keep .env
+
 # start docker services
 docker-compose up -d
 
