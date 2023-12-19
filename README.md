@@ -14,8 +14,12 @@ Pre-requisite:
 
 ```shell
 cd backend
-npm i 
+
+# start docker services
 docker-compose up -d
+
+# install backend dependencies
+npm i 
 
 # run db migrations & add seed data
 npm run knex migrate:latest
@@ -33,7 +37,11 @@ npm run build:dev
 ```
 
 ### Start the frontend app
-```
+```shell
+# install frontend dependencies
+npm i
+
+# start app
 npm start
 ```
 
