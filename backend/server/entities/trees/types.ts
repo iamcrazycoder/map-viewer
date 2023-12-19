@@ -21,7 +21,7 @@ export type GetTreesFilterAttributes = StringToArrayOfStrings<
 
 export type ParsedFilterAttributes = {
   keys: string[];
-  values: string[][];
+  values: (string | null)[][];
 };
 
 export type CoOrdinates = {
