@@ -5,12 +5,13 @@ export type TreePayload = {
   health: "Good" | "Fair" | "Poor" | null;
 };
 
+export type BoundingBox = [number, number][];
 export type LocationInsight = {
   count: number;
   city: string;
   latitude: number;
   longitude: number;
-  boundingBox: [number, number][];
+  boundingBox: BoundingBox;
 };
 
 export type Tree = {
