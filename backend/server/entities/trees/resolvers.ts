@@ -11,7 +11,7 @@ const getParsedFilters = (filters: GetTreesFilterAttributes) => {
   const parsedFilters: ParsedFilterAttributes = { keys: [], values: [] };
   for (let [key, value] of Object.entries(filters)) {
     if (value.length) {
-      const values = value.map((v) => (!v || v === "" ? null : v));
+      const values = value.map((v) => (!v || v === "" ? "" : v)) as string[];
       parsedFilters.keys.push(key);
       parsedFilters.values.push(values);
     }
