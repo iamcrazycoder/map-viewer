@@ -106,7 +106,7 @@ const getTrees = async (
           ${boundingBox[1][0]}, ${boundingBox[1][1]},
         4326)`)
     )
-    .limit(200);
+    .limit(1000);
 
   query = bindFiltersToQuery(query, parsedFilters, context.knex);
   const trees = await query;
