@@ -24,6 +24,19 @@ const getTree = async (id: string, context: Context): Promise<Tree | null> => {
   return data?.[0] || null;
 };
 
+const getParsedFilters = (filters: GetTreesFilterAttributes) => {
+  const parsedFilters: ParsedFilterAttributes = { keys: [], values: [] };
+  for (let [key, value] of Object.entries(filters)) {
+    if (value.length) {
+      const values = value.map((v) => (!v || v === "" ? null : v));
+      parsedFilters.keys.push(key);
+      parsedFilters.values.push(values);
+    }
+  }
+
+  return parsedFilters;
+};
+
 const getTrees = async (
   filters: GetTreesFilterAttributes = {
     species: [],
