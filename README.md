@@ -26,7 +26,7 @@ npm i
 
 # run db migrations & add seed data
 npm run knex migrate:latest
-npm run seed:run
+npm run knex seed:run
 
 # this process may take around 2-4 minutes to complete
 # don't cancel while the process is running 
