@@ -32,13 +32,18 @@ const LoadingBox = styled.div`
   box-shadow: 0px 0px 10px 5px rgb(0 0 0 / 17%);
 `
 
+const MINIMUM_TREES_VIEWING_ZOOM = 12
+const DEFAULT_ZOOM = 10
+const DEFAULT_COORDINATES = [-73.84421521958048, 40.723091773924274]
+const DEBOUNCE_DELAY = 600 // milliseconds
+
 function Home() {
   // TODO: any type to mapRef
   const [mapRef, setMapRef] = useState<any>()
   const [viewport, setViewport] = useState({
-    longitude: -73.84421521958048,
-    latitude: 40.723091773924274,
-    zoom: 10,
+    longitude: DEFAULT_COORDINATES[0],
+    latitude: DEFAULT_COORDINATES[1],
+    zoom: DEFAULT_ZOOM,
   })
   const [selectedLocation, setSelectedLocation] = useState<LocationInsight | null>(null)
   const [selectedTree, setSelectedTree] = useState<TreePayload | null>()
@@ -61,20 +66,31 @@ function Home() {
         filter
       }
     })
-  }, 600)
+  }, DEBOUNCE_DELAY)
 
   const onMoveHandler = useCallback((evt) => {
     if(!mapRef) return
 
     setViewport(evt.viewState)
   
-    if(evt.viewState.zoom < 12 && viewport.zoom > 12) {
+    if(evt.viewState.zoom < MINIMUM_TREES_VIEWING_ZOOM && viewport.zoom > MINIMUM_TREES_VIEWING_ZOOM) {
       setSelectedLocation(null)
     }
 
     setSelectedTree(null)
+
+    if(viewport.zoom < MINIMUM_TREES_VIEWING_ZOOM) return 
+
     retrieveTrees(filter, mapRef.getBounds().toArray())
   }, [viewport, retrieveTrees, filter, mapRef])
+
+  useEffect(() => {
+    if(viewport.zoom < MINIMUM_TREES_VIEWING_ZOOM) {
+      return
+    }
+
+    retrieveTrees(filter, mapRef.getBounds().toArray())
+  }, [mapRef, filter, retrieveTrees, viewport])
 
   const handleSelectedLocation = useCallback((location: LocationInsight) => {
     if(!mapRef) return
@@ -84,7 +100,7 @@ function Home() {
     mapRef
     .fitBounds([...location.boundingBox[0], ...location.boundingBox[1]])
     .flyTo({
-      zoom: 12,
+      zoom: MINIMUM_TREES_VIEWING_ZOOM,
       speed: 0.5,
       duration: 500,
       center: [location.longitude, location.latitude]
@@ -121,7 +137,7 @@ function Home() {
       mapStyle="mapbox://styles/mapbox/streets-v9"
     >
       {!selectedLocation && !insightsloading && <InsightMarker insights={insights} handleSelectedLocation={handleSelectedLocation} />}
-      {selectedLocation && !dataLoading && <TreeMarker trees={trees} handleSelectedTree={handleSelectedTree} />}
+      {!dataLoading && viewport.zoom > MINIMUM_TREES_VIEWING_ZOOM && <TreeMarker trees={trees} handleSelectedTree={handleSelectedTree} />}
       {(selectedTree && tree) && (<Popup longitude={selectedTree.longitude} latitude={selectedTree.latitude}><h2>{JSON.stringify(tree)}</h2></Popup>)}
 
       
