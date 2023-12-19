@@ -10,6 +10,27 @@ import { useDebouncedCallback } from 'use-debounce';
 import { InsightMarker } from './markers/InsightMarker';
 import { TreeMarker } from './markers/TreeMarker';
 import { FilterPayload, TreeFilter } from './TreeFilter';
+import styled from 'styled-components';
+
+const ControlBox = styled.div`
+  position: absolute;
+  width: 300px;
+  top: 7%;
+  right: 10px;
+  padding: 0;
+`
+
+const LoadingBox = styled.div`
+  position: absolute;
+  width: 100%;
+  background: #ffffff;
+  color: #0b550a;
+  font-weight: bold;
+  font-size: 14px;
+  padding: 10px 0px;
+  text-align: center;
+  box-shadow: 0px 0px 10px 5px rgb(0 0 0 / 17%);
+`
 
 function Home() {
   // TODO: any type to mapRef
@@ -27,9 +48,11 @@ function Home() {
     problems: []
   })
 
-  const [getTree, { data: { getTree: tree } = { getTree: [] }}] = useLazyQuery<{ getTree: Tree[] }>(GET_TREE_QUERY)
+  const [getTree, { loading: treeLoading, data: { getTree: tree } = { getTree: [] }}] = useLazyQuery<{ getTree: Tree[] }>(GET_TREE_QUERY)
   const [getTrees, { loading: dataLoading, data: { getTrees: trees } = { getTrees: [] }}] = useLazyQuery<{ getTrees: TreePayload[] }>(GET_TREES_QUERY)
   const [getTreeInsights, { loading: insightsloading, data: { getTreesInsights: insights } = { getTreesInsights: [] }}] = useLazyQuery<{ getTreesInsights: LocationInsight[] }>(GET_TREES_INSIGHTS_QUERY)
+
+  const loading = treeLoading || dataLoading || insightsloading
 
   const retrieveTrees = useDebouncedCallback((filter: FilterPayload, boundingBox: BoundingBox) => {
     getTrees({
@@ -101,7 +124,12 @@ function Home() {
       {selectedLocation && !dataLoading && <TreeMarker trees={trees} handleSelectedTree={handleSelectedTree} />}
       {(selectedTree && tree) && (<Popup longitude={selectedTree.longitude} latitude={selectedTree.latitude}><h2>{JSON.stringify(tree)}</h2></Popup>)}
 
-      <TreeFilter filter={filter} setFilter={setFilter}/>
+      
+      <ControlBox>
+        <TreeFilter filter={filter} setFilter={setFilter}/>
+      </ControlBox>
+
+      {loading && <LoadingBox>Loading..</LoadingBox>}
     </Map>
   );
 }
