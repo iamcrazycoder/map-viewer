@@ -1,10 +1,10 @@
-import React, { useCallback, useState, useRef } from 'react';
-import Map, { type MapRef, Popup } from 'react-map-gl';
-import { useLazyQuery, useQuery } from '@apollo/client';
+import React, { useCallback, useState, useEffect } from 'react';
+import Map, { Popup } from 'react-map-gl';
+import { useLazyQuery } from '@apollo/client';
 
 import "mapbox-gl/dist/mapbox-gl.css";
 
-import { LocationInsight, Tree, TreePayload } from './types';
+import { BoundingBox, LocationInsight, Tree, TreePayload } from './types';
 import { GET_TREES_INSIGHTS_QUERY, GET_TREES_QUERY, GET_TREE_QUERY } from './gql-queries';
 import { useDebouncedCallback } from 'use-debounce';
 import { InsightMarker } from './markers/InsightMarker';
@@ -12,11 +12,12 @@ import { TreeMarker } from './markers/TreeMarker';
 import { FilterPayload, TreeFilter } from './TreeFilter';
 
 function Home() {
-  const mapRef = useRef<MapRef>()
+  // TODO: any type to mapRef
+  const [mapRef, setMapRef] = useState<any>()
   const [viewport, setViewport] = useState({
     longitude: -73.84421521958048,
     latitude: 40.723091773924274,
-    zoom: 11,
+    zoom: 10,
   })
   const [selectedLocation, setSelectedLocation] = useState<LocationInsight | null>(null)
   const [selectedTree, setSelectedTree] = useState<TreePayload | null>()
@@ -28,26 +29,20 @@ function Home() {
 
   const [getTree, { data: { getTree: tree } = { getTree: [] }}] = useLazyQuery<{ getTree: Tree[] }>(GET_TREE_QUERY)
   const [getTrees, { loading: dataLoading, data: { getTrees: trees } = { getTrees: [] }}] = useLazyQuery<{ getTrees: TreePayload[] }>(GET_TREES_QUERY)
-  const { loading: insightsloading, data: { getTreesInsights: insights } = { getTreesInsights: [] }} = useQuery<{ getTreesInsights: LocationInsight[] }>(GET_TREES_INSIGHTS_QUERY, {
-    variables: {
-      boundingBox: [
-        [-79.7633786294863, 40.502009391283906],
-        [-71.85616396303963,45.01550900568005],
-      ],
-      filter
-    }
-  })
+  const [getTreeInsights, { loading: insightsloading, data: { getTreesInsights: insights } = { getTreesInsights: [] }}] = useLazyQuery<{ getTreesInsights: LocationInsight[] }>(GET_TREES_INSIGHTS_QUERY)
 
-  const retrieveTrees = useDebouncedCallback((filter: FilterPayload) => {
+  const retrieveTrees = useDebouncedCallback((filter: FilterPayload, boundingBox: BoundingBox) => {
     getTrees({
       variables: {
-        boundingBox: mapRef.current?.getBounds().toArray(),
+        boundingBox,
         filter
       }
     })
   }, 600)
 
   const onMoveHandler = useCallback((evt) => {
+    if(!mapRef) return
+
     setViewport(evt.viewState)
   
     if(evt.viewState.zoom < 12 && viewport.zoom > 12) {
@@ -55,15 +50,15 @@ function Home() {
     }
 
     setSelectedTree(null)
-    retrieveTrees(filter)
-  }, [viewport, retrieveTrees, filter])
+    retrieveTrees(filter, mapRef.getBounds().toArray())
+  }, [viewport, retrieveTrees, filter, mapRef])
 
   const handleSelectedLocation = useCallback((location: LocationInsight) => {
-    if(!mapRef || !mapRef.current) return
+    if(!mapRef) return
 
     setSelectedLocation(location)
 
-    mapRef.current
+    mapRef
     .fitBounds([...location.boundingBox[0], ...location.boundingBox[1]])
     .flyTo({
       zoom: 12,
@@ -80,10 +75,23 @@ function Home() {
     })
   }, [getTree])
 
+  useEffect(() => {
+    if(!mapRef) return 
+
+    getTreeInsights( {
+      variables: {
+        boundingBox: mapRef?.getBounds().toArray(),
+        filter
+      }
+    })
+
+    // TODO: clean up?
+  }, [mapRef, filter, getTreeInsights])
+
   return (
     <Map
       {...viewport}
-      ref={mapRef}
+      ref={(ref) => setMapRef(ref)}
       onMove={onMoveHandler}
       style={{ width: "100vw", height: "100vh" }}
       mapboxAccessToken="pk.eyJ1IjoiaWFtY3Jhenljb2RlciIsImEiOiJjbHE2czdiNWwwenVxMm1udmk1bzd5dW94In0.19alGB_bZGJqFUL--GqXig"
