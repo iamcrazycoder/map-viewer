@@ -1,3 +1,4 @@
+import { Knex } from "knex";
 import generateResolver, { type Context } from "../../utils/generateResolver";
 import type {
   BoundingBox,
@@ -18,6 +19,48 @@ const getParsedFilters = (filters: GetTreesFilterAttributes) => {
   }
 
   return parsedFilters;
+};
+
+const bindFiltersToQuery = (
+  query: Knex.QueryBuilder,
+  filters: ParsedFilterAttributes,
+  knex: Knex
+) => {
+  for (const [index, column] of filters.keys.entries()) {
+    if (column === "problems") {
+      query = query
+        .where(
+          knex.raw(
+            `array[${filters.values[index].map((_) => "?")}] <@ (problems)`,
+            filters.values[index]
+          )
+        )
+        .where(
+          knex.raw(
+            `array[${filters.values[index].map((_) => "?")}] @> (problems)`,
+            filters.values[index]
+          )
+        );
+    } else {
+      if (filters.values[index].includes("")) {
+        const nonNullValues = filters.values[index].filter(Boolean);
+
+        if (nonNullValues.length) {
+          query = query.where((builder) => {
+            builder
+              .orWhereNull(column)
+              .orWhereIn(filters.keys[index], nonNullValues);
+          });
+        } else {
+          query = query.whereNull(column);
+        }
+      } else if (filters.values[index].filter(Boolean).length) {
+        query = query.whereIn(filters.keys[index], filters.values[index]);
+      }
+    }
+  }
+
+  return query;
 };
 
 /**
@@ -63,35 +106,9 @@ const getTrees = async (
           ${boundingBox[1][0]}, ${boundingBox[1][1]},
         4326)`)
     )
-    .limit(500);
+    .limit(200);
 
-  for (const [index, column] of parsedFilters.keys.entries()) {
-    if (column === "problems") {
-      query = query
-        .where(
-          context.knex.raw(
-            `array[${parsedFilters.values[index].map(
-              (_) => "?"
-            )}] <@ (problems)`,
-            parsedFilters.values[index]
-          )
-        )
-        .where(
-          context.knex.raw(
-            `array[${parsedFilters.values[index].map(
-              (_) => "?"
-            )}] @> (problems)`,
-            parsedFilters.values[index]
-          )
-        );
-    } else {
-      query = query.whereIn(
-        parsedFilters.keys[index],
-        parsedFilters.values[index]
-      );
-    }
-  }
-
+  query = bindFiltersToQuery(query, parsedFilters, context.knex);
   const trees = await query;
 
   return trees || [];
@@ -130,38 +147,13 @@ const getTreesInsights = async (
         4326)`)
     );
 
-  for (const [index, column] of parsedFilters.keys.entries()) {
-    if (column === "problems") {
-      query = query
-        .where(
-          context.knex.raw(
-            `array[${parsedFilters.values[index].map(
-              (_) => "?"
-            )}] <@ (problems)`,
-            parsedFilters.values[index]
-          )
-        )
-        .where(
-          context.knex.raw(
-            `array[${parsedFilters.values[index].map(
-              (_) => "?"
-            )}] @> (problems)`,
-            parsedFilters.values[index]
-          )
-        );
-    } else {
-      query = query.whereIn(
-        parsedFilters.keys[index],
-        parsedFilters.values[index]
-      );
-    }
-  }
+  query = bindFiltersToQuery(query, parsedFilters, context.knex);
 
   query.groupBy("trees.city", "locations.boundingBox");
 
   const insights = await query;
 
-  return insights;
+  return insights || [];
 };
 
 const getFilterOptions = async ({ context }: { context: Context }) => {
