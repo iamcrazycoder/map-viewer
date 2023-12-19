@@ -100,7 +100,7 @@ function Home() {
     mapRef
     .fitBounds([...location.boundingBox[0], ...location.boundingBox[1]])
     .flyTo({
-      zoom: MINIMUM_TREES_VIEWING_ZOOM,
+      zoom: MINIMUM_TREES_VIEWING_ZOOM + 0.05,
       speed: 0.5,
       duration: 500,
       center: [location.longitude, location.latitude]
