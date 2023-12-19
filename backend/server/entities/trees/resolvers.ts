@@ -46,32 +46,54 @@ const getTrees = async (
   boundingBox: BoundingBox,
   context: Context
 ) => {
-  const parsedFilters: ParsedFilterAttributes = { keys: [], values: [] };
-  for (let [key, value] of Object.entries(filters)) {
-    if (value.length) {
-      parsedFilters.keys.push(key);
-      parsedFilters.values.push(value);
-    }
-  }
-
-  const trees = context.knex
+  const parsedFilters = getParsedFilters(filters);
+  let query = context.knex
     .select<Tree[] | null>([
       "id",
-      context.knex.raw('ST_X(coords) AS "longitude"'),
-      context.knex.raw('ST_Y(coords) AS "latitude"'),
+      context.knex.raw('ST_X(geom) AS "longitude"'),
+      context.knex.raw('ST_Y(geom) AS "latitude"'),
+      "health",
     ])
     .from("trees")
-    .whereIn(parsedFilters.keys, parsedFilters.values)
     .where(
       context.knex.raw(`
-        coords @ ST_MakeEnvelope (
+        geom @ ST_MakeEnvelope (
           ${boundingBox[0][0]}, ${boundingBox[0][1]},
           ${boundingBox[1][0]}, ${boundingBox[1][1]},
         4326)`)
     )
-    .limit(1000);
+    .limit(500);
 
-  return trees;
+  for (const [index, column] of parsedFilters.keys.entries()) {
+    if (column === "problems") {
+      query = query
+        .where(
+          context.knex.raw(
+            `array[${parsedFilters.values[index].map(
+              (_) => "?"
+            )}] <@ (problems)`,
+            parsedFilters.values[index]
+          )
+        )
+        .where(
+          context.knex.raw(
+            `array[${parsedFilters.values[index].map(
+              (_) => "?"
+            )}] @> (problems)`,
+            parsedFilters.values[index]
+          )
+        );
+    } else {
+      query = query.whereIn(
+        parsedFilters.keys[index],
+        parsedFilters.values[index]
+      );
+    }
+  }
+
+  const trees = await query;
+
+  return trees || [];
 };
 
 export default {
