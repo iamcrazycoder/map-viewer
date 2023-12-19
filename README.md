@@ -49,6 +49,8 @@ cd frontend
 # install frontend dependencies
 npm i
 
+# set mapBoxAccessToken on Line 120 in frontend/src/components/index.tsx file
+
 # start app
 npm start
 ```
