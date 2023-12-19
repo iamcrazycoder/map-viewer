@@ -11,7 +11,8 @@
     "test": "jest --coverage --config --passWithNoTests jestconfig.json",
     "ci": "npm run test",
     "knex": "knex",
-    "import-ny-trees": "tsx scripts/ny-trees-importer.ts"
+    "import-ny-trees": "tsx scripts/ny-trees-importer.ts",
+    "extract-bounding-boxes": "tsx scripts/extract-bounding-boxes.ts"
   },
   "author": "Nishant Ghodke",
   "license": "MIT",
