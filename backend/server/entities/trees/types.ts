@@ -21,7 +21,7 @@ export type GetTreesFilterAttributes = StringToArrayOfStrings<
 
 export type ParsedFilterAttributes = {
   keys: string[];
-  values: string[][];
+  values: (string | null)[][];
 };
 
 export type CoOrdinates = {
@@ -31,3 +31,16 @@ export type CoOrdinates = {
 
 // [[x-min, y-min], [x-max, y-max]]
 export type BoundingBox = [[number, number], [number, number]];
+
+export type InsightsPayload = {
+  count: number;
+  city: string;
+  longitude: number;
+  latitude: number;
+  boundingBox: BoundingBox;
+};
+
+export type GeoJSON = {
+  type: String;
+  coordinates: [number, number][][];
+};

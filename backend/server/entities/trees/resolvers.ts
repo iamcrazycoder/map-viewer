@@ -2,6 +2,7 @@ import generateResolver, { type Context } from "../../utils/generateResolver";
 import type {
   BoundingBox,
   GetTreesFilterAttributes,
+  InsightsPayload,
   ParsedFilterAttributes,
   Tree,
 } from "./types";
@@ -96,11 +97,81 @@ const getTrees = async (
   return trees || [];
 };
 
+const getTreesInsights = async (
+  filters: GetTreesFilterAttributes = {
+    species: [],
+    health: [],
+    problems: [],
+  },
+  boundingBox: BoundingBox,
+  context: Context
+) => {
+  const parsedFilters = getParsedFilters(filters);
+  let query = context.knex
+    .select<InsightsPayload[] | null>([
+      context.knex.raw("count(trees.id)::integer"),
+      "trees.city",
+      context.knex.raw('ST_X(ST_CENTROID("boundingBox")) AS "longitude"'),
+      context.knex.raw('ST_Y(ST_CENTROID("boundingBox")) AS "latitude"'),
+      context.knex.raw(`
+        array[
+          array[ST_Xmin("boundingBox"), ST_Ymin("boundingBox")],
+          array[st_xmax("boundingBox"), ST_Ymax("boundingBox")]
+        ] as "boundingBox"
+      `),
+    ])
+    .from("trees")
+    .innerJoin("locations", "locations.name", "trees.city")
+    .where(
+      context.knex.raw(`
+        geom @ ST_MakeEnvelope (
+          ${boundingBox[0][0]}, ${boundingBox[0][1]},
+          ${boundingBox[1][0]}, ${boundingBox[1][1]},
+        4326)`)
+    );
+
+  for (const [index, column] of parsedFilters.keys.entries()) {
+    if (column === "problems") {
+      query = query
+        .where(
+          context.knex.raw(
+            `array[${parsedFilters.values[index].map(
+              (_) => "?"
+            )}] <@ (problems)`,
+            parsedFilters.values[index]
+          )
+        )
+        .where(
+          context.knex.raw(
+            `array[${parsedFilters.values[index].map(
+              (_) => "?"
+            )}] @> (problems)`,
+            parsedFilters.values[index]
+          )
+        );
+    } else {
+      query = query.whereIn(
+        parsedFilters.keys[index],
+        parsedFilters.values[index]
+      );
+    }
+  }
+
+  query.groupBy("trees.city", "locations.boundingBox");
+
+  const insights = await query;
+
+  return insights;
+};
+
 export default {
   Query: {
     getTree: generateResolver(({ args, context }) => getTree(args.id, context)),
     getTrees: generateResolver(({ args, context }) =>
       getTrees(args.filter, args.boundingBox, context)
+    ),
+    getTreesInsights: generateResolver(({ args, context }) =>
+      getTreesInsights(args.filter, args.boundingBox, context)
     ),
   },
 };

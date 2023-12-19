@@ -18,6 +18,15 @@ export default `
     id: ID!
     longitude: Float
     latitude: Float
+    health: String
+  }
+
+  type InsightsPayload {
+    count: Int
+    city: String
+    longitude: Float
+    latitude: Float
+    boundingBox: [[Float]]
   }
 
   input TreesFilter {
@@ -29,5 +38,6 @@ export default `
   type Query {
     getTree(id: ID!): Tree
     getTrees(filter: TreesFilter, boundingBox: [[Float]]): [CompressedTree]
+    getTreesInsights(filter: TreesFilter, boundingBox: [[Float]]): [InsightsPayload]
   }
 `;
