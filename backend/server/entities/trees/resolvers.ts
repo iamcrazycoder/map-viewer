@@ -15,8 +15,8 @@ const getTree = async (id: string, context: Context): Promise<Tree | null> => {
   const data = await context.knex
     .select<Tree[] | null>([
       "*",
-      context.knex.raw('ST_X(coords) AS "longitude"'),
-      context.knex.raw('ST_Y(coords) AS "latitude"'),
+      context.knex.raw('ST_X(geom) AS "longitude"'),
+      context.knex.raw('ST_Y(geom) AS "latitude"'),
     ])
     .from("trees")
     .where({ id });
