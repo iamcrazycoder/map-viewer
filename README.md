@@ -38,6 +38,8 @@ npm run build:dev
 
 ### Start the frontend app
 ```shell
+cd frontend
+
 # install frontend dependencies
 npm i
 
