@@ -117,7 +117,7 @@ function Home() {
       ref={(ref) => setMapRef(ref)}
       onMove={onMoveHandler}
       style={{ width: "100vw", height: "100vh" }}
-      mapboxAccessToken="pk.eyJ1IjoiaWFtY3Jhenljb2RlciIsImEiOiJjbHE2czdiNWwwenVxMm1udmk1bzd5dW94In0.19alGB_bZGJqFUL--GqXig"
+      mapboxAccessToken="<access-token>"
       mapStyle="mapbox://styles/mapbox/streets-v9"
     >
       {!selectedLocation && !insightsloading && <InsightMarker insights={insights} handleSelectedLocation={handleSelectedLocation} />}

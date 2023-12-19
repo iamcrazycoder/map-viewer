@@ -76,7 +76,7 @@ const TreeFilter: React.FC<SelectFilterOptions> = ({ filter, setFilter }) => {
 
     return (
         <FilterContainer id="filter-container">
-            <FilterTitle>Filter</FilterTitle>
+            <FilterTitle>Map-viewer Filter</FilterTitle>
             <>
             <SelectElement
                 options={health}
