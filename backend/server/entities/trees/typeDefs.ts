@@ -35,9 +35,16 @@ export default `
     problems: [String]
   }
 
+  type FilterPayload {
+    health: [String]
+    species: [String]
+    problems: [String]
+  }
+
   type Query {
     getTree(id: ID!): Tree
     getTrees(filter: TreesFilter, boundingBox: [[Float]]): [CompressedTree]
     getTreesInsights(filter: TreesFilter, boundingBox: [[Float]]): [InsightsPayload]
+    getFilterOptions: FilterPayload
   }
 `;

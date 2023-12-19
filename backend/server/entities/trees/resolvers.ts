@@ -164,6 +164,22 @@ const getTreesInsights = async (
   return insights;
 };
 
+const getFilterOptions = async ({ context }: { context: Context }) => {
+  const [healthOptions, problemOptions, speciesOptions] = await Promise.all([
+    context.knex.distinct(context.knex.raw("health")).from("trees"),
+    context.knex
+      .distinct(context.knex.raw("unnest(problems) as problem"))
+      .from("trees"),
+    context.knex.distinct("species").from("trees"),
+  ]);
+
+  return {
+    health: healthOptions.map((value) => value.health),
+    problems: problemOptions.map((value) => value.problem),
+    species: speciesOptions.map((value) => value.species),
+  };
+};
+
 export default {
   Query: {
     getTree: generateResolver(({ args, context }) => getTree(args.id, context)),
@@ -172,6 +188,9 @@ export default {
     ),
     getTreesInsights: generateResolver(({ args, context }) =>
       getTreesInsights(args.filter, args.boundingBox, context)
+    ),
+    getFilterOptions: generateResolver(({ context }) =>
+      getFilterOptions({ context })
     ),
   },
 };
