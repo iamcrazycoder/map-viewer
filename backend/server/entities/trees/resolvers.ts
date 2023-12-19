@@ -6,6 +6,19 @@ import type {
   Tree,
 } from "./types";
 
+const getParsedFilters = (filters: GetTreesFilterAttributes) => {
+  const parsedFilters: ParsedFilterAttributes = { keys: [], values: [] };
+  for (let [key, value] of Object.entries(filters)) {
+    if (value.length) {
+      const values = value.map((v) => (!v || v === "" ? null : v));
+      parsedFilters.keys.push(key);
+      parsedFilters.values.push(values);
+    }
+  }
+
+  return parsedFilters;
+};
+
 /**
  * Get a tree object by id from the database
  * @param id - the uuid id of the tree to retrieve
@@ -22,19 +35,6 @@ const getTree = async (id: string, context: Context): Promise<Tree | null> => {
     .where({ id });
 
   return data?.[0] || null;
-};
-
-const getParsedFilters = (filters: GetTreesFilterAttributes) => {
-  const parsedFilters: ParsedFilterAttributes = { keys: [], values: [] };
-  for (let [key, value] of Object.entries(filters)) {
-    if (value.length) {
-      const values = value.map((v) => (!v || v === "" ? null : v));
-      parsedFilters.keys.push(key);
-      parsedFilters.values.push(values);
-    }
-  }
-
-  return parsedFilters;
 };
 
 const getTrees = async (
